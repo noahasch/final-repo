@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: pkg
+Version: 0.0.1
+Summary: final project
+Home-page: UNKNOWN
+Maintainer: Noah Asch
+Maintainer-email: nasch@andrew.cmu.edu
+License: MIT
+Platform: UNKNOWN
+License-File: LICENSE
+
+OpenAlex based package
+
