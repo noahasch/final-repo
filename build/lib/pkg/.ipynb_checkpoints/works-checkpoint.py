@@ -1,11 +1,13 @@
 """works package."""
 import time
+import base64
 import requests
+import bibtexparser
+import matplotlib.pyplot as plt
+from IPython.core.pylabtools import print_figure
 
 
 class Works:
-    "This is a paper finding class on Open Alex."
-
     def __init__(self, oaid):
         self.oaid = oaid
         self.req = requests.get(f"https://api.openalex.org/works/{oaid}")
@@ -15,14 +17,18 @@ class Works:
         return "str"
 
     def __repr__(self):
-        _authors = [au["author"]["display_name"] for au in self.data["authorships"]]
+        _authors = [au["author"]["display_name"]
+                    for au in self.data["authorships"]]
         if len(_authors) == 1:
             authors = _authors[0]
         else:
             authors = ", ".join(_authors[0:-1]) + " and" + _authors[-1]
 
         title = self.data["title"]
+
+        journal = self.data["host_venue"]["display_name"]
         volume = self.data["biblio"]["volume"]
+
         issue = self.data["biblio"]["issue"]
         if issue is None:
             issue = ", "
@@ -38,14 +44,63 @@ class Works:
         year = self.data["publication_year"]
         citedby = self.data["cited_by_count"]
 
-        open_alex = self.data["id"]
-        string = f'{authors}, {title}, {volume}{issue}{pages}, ({year}), \
-                    {self.data["doi"]}. cited by: {citedby}. {open_alex}'
-        return string
+        oa = self.data["id"]
+        s = f'{authors}, {title}, {volume}{issue}{pages}, ({year}), {self.data["doi"]}. cited by: {citedby}. {oa}'
+        return s
+
+    def _repr_markdown_(self):
+        _authors = [
+            f'[{au["author"]["display_name"]}]({au["author"]["id"]})'
+            for au in self.data["authorships"]
+        ]
+        if len(_authors) == 1:
+            authors = _authors[0]
+        else:
+            authors = ", ".join(_authors[0:-1]) + " and " + _authors[-1]
+
+        title = self.data["title"]
+
+        journal = f"[{self.data['host_venue']['display_name']}]({self.data['host_venue']['id']})"
+        volume = self.data["biblio"]["volume"]
+
+        issue = self.data["biblio"]["issue"]
+        if issue is None:
+            issue = ", "
+        else:
+            issue = ", " + issue
+
+        pages = "-".join(
+            [
+                self.data["biblio"].get("first_page", "") or "",
+                self.data["biblio"].get("last_page", "") or "",
+            ]
+        )
+        year = self.data["publication_year"]
+        citedby = self.data["cited_by_count"]
+
+        oa = self.data["id"]
+
+        # Citation counts by year
+        years = [e["year"] for e in self.data["counts_by_year"]]
+        counts = [e["cited_by_count"] for e in self.data["counts_by_year"]]
+
+        fig, ax = plt.subplots()
+        ax.bar(years, counts)
+        ax.set_xlabel("year")
+        ax.set_ylabel("citation count")
+        data = print_figure(fig, "png")  # save figure in string
+        plt.close(fig)
+
+        b64 = base64.b64encode(data).decode("utf8")
+        citefig = f"![img](data:image/png;base64,{b64})"
+
+        s = f'{authors}, *{title}*, **{journal}**, {volume}{issue}{pages}, ({year}), {self.data["doi"]}. cited by: {citedby}. [Open Alex]({oa})'
+
+        s += "<br>" + citefig
+        return s
 
     @property
     def ris(self):
-        "Ris function for paper formatting."
         fields = []
         if self.data["type"] == "journal-article":
             fields += ["TY  - JOUR"]
@@ -69,20 +124,23 @@ class Works:
         fields += ["ER  -"]
 
         ris = "\n".join(fields)
-        return ris
+        print(ris)
+        ris64 = base64.b64encode(ris.encode("utf-8")).decode("utf8")
+        uri = f'<pre>{ris}<pre><br><a href="data:text/plain;base64,{ris64}" download="ris">Download RIS</a>'
+        from IPython.display import HTML
+
+        return HTML(uri)
 
     def related_works(self):
-        "Related works function."
         rworks = []
         for rw_url in self.data["related_works"]:
-            related_works = Works(rw_url)
-            rworks += [related_works]
+            rw = Works(rw_url)
+            rworks += [rw]
             time.sleep(0.101)
         return rworks
 
     def citing_works(self):
-        "Citing works function."
-        information = []
+        Sum = []
         cited_by = self.data["cited_by_api_url"]
         citing_works = requests.get(cited_by).json()
         results = citing_works["results"]
@@ -90,32 +148,32 @@ class Works:
             title = i["title"]
             year = i["publication_year"]
             title_year = title + ", " + str(year)
-            information.append(title_year)
+            Sum.append(title_year)
 
-        print("\n".join(information))
+        print("\n".join(Sum))
+
+        return
 
     def references(self):
-        "References function."
-        referenced_data = []
+        Sum = []
         ref = self.data["referenced_works"]
         for i in ref:
-            doi = i[21:]
-            url1 = "https://api.openalex.org/works/" + str(doi)
+            W_plus = i[21:]
+            url1 = "https://api.openalex.org/works/" + str(W_plus)
             time.sleep(0.2)
             data1 = requests.get(url1).json()
             title = data1["title"]
             year = data1["publication_year"]
             title_year = title + ", " + str(year)
-            referenced_data.append(title_year)
+            Sum.append(title_year)
 
-        print("\n".join(referenced_data))
+        print("\n".join(Sum))
+
+        return
 
     @property
     def bibtex(self):
-        "Bibtex function."
-        author = self.data["authorships"][0]["author"]["display_name"].split(" ")[-1]
-        year = str(self.data["publication_year"])
-        bibtex = f"""@ARTICLE{{{author}{year},
+        bibtex = f"""@ARTICLE{{{self.data['id']},
             author =	 {{{self.data['authorships'][0]['author']['display_name']}}},
             title =	 {{{self.data['title']}}},
             journal =	 {{{self.data['host_venue']['display_name']}}},
@@ -127,4 +185,14 @@ class Works:
             url =		 {{{self.data['doi']}}},
             }} """
 
-        return bibtex
+        with open("bibtex.bib", "w") as bibfile:
+            bibfile.write(bibtex)
+        with open("bibtex.bib") as bibtex_file:
+            bib_database = bibtexparser.load(bibtex_file)
+
+        bibtex = bib_database.entries
+
+        bibtex_list = list(bibtex[0].items())
+
+        for i in bibtex_list:
+            print(i[0] + " = " + i[1])
