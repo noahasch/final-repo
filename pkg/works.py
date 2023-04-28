@@ -1,4 +1,4 @@
-"""works package."""
+"""class package."""
 import time
 import requests
 

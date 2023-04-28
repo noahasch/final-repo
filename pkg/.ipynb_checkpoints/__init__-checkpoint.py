@@ -1,2 +1,2 @@
-"""Import package from Works."""
+"Make directory into package."
 from .works import Works
