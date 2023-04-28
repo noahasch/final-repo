@@ -1,2 +1,2 @@
-"This is a setup file."
+"Make directory into package."
 from .works import Works

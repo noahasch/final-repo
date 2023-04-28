@@ -1,10 +1,9 @@
-"""class package."""
-import time
+"""This file formats OpenAlex papers in either a RIS or Bibtex format."""
 import requests
 
 
 class Works:
-    "This is a paper finding class on Open Alex."
+    "This is a paper formatting class."
 
     def __init__(self, oaid):
         self.oaid = oaid
@@ -71,48 +70,9 @@ class Works:
         ris = "\n".join(fields)
         return ris
 
-    def related_works(self):
-        "Related works function."
-        rworks = []
-        for rw_url in self.data["related_works"]:
-            related_works = Works(rw_url)
-            rworks += [related_works]
-            time.sleep(0.101)
-        return rworks
-
-    def citing_works(self):
-        "Citing works function."
-        information = []
-        cited_by = self.data["cited_by_api_url"]
-        citing_works = requests.get(cited_by).json()
-        results = citing_works["results"]
-        for i in results:
-            title = i["title"]
-            year = i["publication_year"]
-            title_year = title + ", " + str(year)
-            information.append(title_year)
-
-        print("\n".join(information))
-
-    def references(self):
-        "References function."
-        referenced_data = []
-        ref = self.data["referenced_works"]
-        for i in ref:
-            doi = i[21:]
-            url1 = "https://api.openalex.org/works/" + str(doi)
-            time.sleep(0.2)
-            data1 = requests.get(url1).json()
-            title = data1["title"]
-            year = data1["publication_year"]
-            title_year = title + ", " + str(year)
-            referenced_data.append(title_year)
-
-        print("\n".join(referenced_data))
-
     @property
     def bibtex(self):
-        "Bibtex function."
+        "Bibtex function for paper formatting."
         author = self.data["authorships"][0]["author"]["display_name"].split(" ")[-1]
         year = str(self.data["publication_year"])
         bibtex = f"""@ARTICLE{{{author}{year},
